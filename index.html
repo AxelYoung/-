@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>辩论计时器</title>
+    <!-- Material Design Lite -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <style>
+        body {
+            font-family: 'Roboto', 'Helvetica', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+
+        .page {
+            text-align: center;
+            width: 80%;
+            max-width: 600px;
+            z-index:2;
+        }
+
+        .teamName {
+            font-size: 1.5em;
+            margin: 20px;
+            position: absolute;
+            top: 10px;
+        }
+
+        #teamAName {
+            left: 10px;
+        }
+
+        #teamBName {
+            right: 10px;
+        }
+
+        .timer {
+            font-size: 3em;
+            margin: 20px;
+            padding: 20px;
+            border: 2px solid #2196F3;
+            border-radius: 10px;
+            transition: border-color 0.5s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .timer.red-border {
+            border-color: red;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% { border-color: transparent; }
+        }
+
+        #controls {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #controls .row {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        #phaseDisplay {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+        }
+
+        #freeDebateTeam {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+        }
+
+        .mdl-button {
+            margin: 5px;
+        }
+
+        #version {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 0.8em;
+            color: #757575;
+        }
+
+        #phasesList {
+            text-align: left;
+            margin-top: 20px;
+            line-height: 1.33; /* 缩减行距1/3 */
+        }
+
+        #phasesList .mdl-list__item {
+            font-size: 1em;
+        }
+
+        #freeDebateTimers {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        #freeDebateTimers .timer {
+            width: 75%;
+            padding: 10%; /* 加大自由辩论环节的线框 */
+            height: 65px; /* 拉长自由辩论环节的线框 */
+        }
+
+        #freeDebateTimers .teamLabel {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- 第一个页面：输入队伍名称和持方 -->
+    <div id="page1" class="page">
+        <h1 class="mdl-typography--display-1">辩论计时器</h1>
+        <form id="teamForm" class="mdl-grid">
+            <div class="mdl-cell mdl-cell--6-col">
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                    <input class="mdl-textfield__input" type="text" id="teamA" required>
+                    <label class="mdl-textfield__label" for="teamA">正方队伍名称:</label>
+                </div>
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                    <input class="mdl-textfield__input" type="text" id="teamAStance" required>
+                    <label class="mdl-textfield__label" for="teamAStance">正方持方:</label>
+                </div>
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                    <input class="mdl-textfield__input" type="text" id="teamB" required>
+                    <label class="mdl-textfield__label" for="teamB">反方队伍名称:</label>
+                </div>
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                    <input class="mdl-textfield__input" type="text" id="teamBStance" required>
+                    <label class="mdl-textfield__label" for="teamBStance">反方持方:</label>
+                </div>
+                <button type="button" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent" onclick="startDebate()">开始辩论</button>
+                <button type="button" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect" onclick="playSound()">提示音</button>
+            </div>
+            <div class="mdl-cell mdl-cell--6-col">
+                <ul id="phasesList" class="mdl-list">
+                    <li class="mdl-list__item">1、正方一辩陈词1（3分钟）</li>
+                    <li class="mdl-list__item">2、反方四辩质询正方一辩（3分钟）</li>
+                    <li class="mdl-list__item">3、反方一辩陈词1（3分钟）</li>
+                    <li class="mdl-list__item">4、正方四辩质询反方一辩（3分钟）</li>
+                    <li class="mdl-list__item">5、正方二辩陈词2（3分钟）</li>
+                    <li class="mdl-list__item">6、反方三辩质询正方二辩（3分钟）</li>
+                    <li class="mdl-list__item">7、反方二辩陈词2（3分钟）</li>
+                    <li class="mdl-list__item">8、正方三辩质询反方二辩（3分钟）</li>
+                    <li class="mdl-list__item">9、反方三辩质询小结（3分钟）</li>
+                    <li class="mdl-list__item">10、正方三辩质询小结（3分钟）</li>
+                    <li class="mdl-list__item">11、自由辩论（正反各4分钟）</li>
+                    <li class="mdl-list__item">12、反方四辩总结陈词（4分钟）</li>
+                    <li class="mdl-list__item">13、正方四辩总结陈词（4分钟）</li>
+                </ul>
+            </div>
+        </form>
+        <div id="version">匹辩计时器v0.03 by:AxelYoung</div>
+    </div>
+
+    <!-- 第二个页面：计时器和环节控制 -->
+    <div id="page2" class="page" style="display:none;">
+        <div id="teams">
+            <div id="teamAName" class="teamName"></div>
+            <div id="teamBName" class="teamName"></div>
+        </div>
+        <div id="phaseDisplay" class="mdl-typography--display-1"></div>
+        <div id="freeDebateTeam" class="mdl-typography--display-1"></div>
+        <div id="timer" class="timer mdl-typography--display-3">00:00:000</div>
+        <div id="freeDebateTimers" style="display:none;">
+            <div>
+                <div class="teamLabel">正方</div>
+                <div id="timerA" class="timer">00:00:000</div>
+            </div>
+            <div>
+                <div class="teamLabel">反方</div>
+                <div id="timerB" class="timer">00:00:000</div>
+            </div>
+        </div>
+        <div id="controls">
+            <div class="row">
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect" onclick="startTimer()">开始</button>
+            </div>
+            <div class="row">
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect" onclick="pauseTimer()">暂停</button>
+            </div>
+            <div class="row">
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect" onclick="prevPhase()">上一环节</button>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect" onclick="nextPhase()">下一环节</button>
+            </div>
+        </div>
+        <div id="freeDebateControls" style="display:none;">
+            <div class="row">
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect" onclick="switchTimer()">切换计时</button>
+            </div>
+        </div>
+        <div id="version">匹辩计时器v0.03 by:AxelYoung</div>
+    </div>
+
+    <!-- 第三个页面：辩论结束 -->
+    <div id="page3" class="page" style="display:none;">
+        <h1 class="mdl-typography--display-1">辩论结束</h1>
+        <div id="version">匹辩计时器v0.03 by:AxelYoung</div>
+    </div>
+
+    <audio id="alertSound" src="audio.wav"></audio>
+    <canvas id="confettiCanvas"></canvas>
+
+    <script>
+        let teamA, teamAStance, teamB, teamBStance;
+        let timerInterval;
+        let currentPhase = 0;
+        let phases = [
+            { name: "正方一辩陈词1", duration: 3 * 60 * 1000 },
+            { name: "反方四辩质询正方一辩", duration: 3 * 60 * 1000 },
+            { name: "反方一辩陈词1", duration: 3 * 60 * 1000 },
+            { name: "正方四辩质询反方一辩", duration: 3 * 60 * 1000 },
+            { name: "正方二辩陈词2", duration: 3 * 60 * 1000 },
+            { name: "反方三辩质询正方二辩", duration: 3 * 60 * 1000 },
+            { name: "反方二辩陈词2", duration: 3 * 60 * 1000 },
+            { name: "正方三辩质询反方二辩", duration: 3 * 60 * 1000 },
+            { name: "反方三辩质询小结", duration: 3 * 60 * 1000 },
+            { name: "正方三辩质询小结", duration: 3 * 60 * 1000 },
+            { name: "自由辩论", duration: 4 * 60 * 1000 },
+            { name: "反方四辩总结陈词", duration: 4 * 60 * 1000 },
+            { name: "正方四辩总结陈词", duration: 4 * 60 * 1000 }
+        ];
+        let timerRunning = false;
+        let timerEndTime;
+        let freeDebateTimerA, freeDebateTimerB;
+        let currentFreeDebateTimer = "A";
+        let lastPlayedTime = -1;
+
+        function startDebate() {
+            teamA = document.getElementById("teamA").value;
+            teamAStance = document.getElementById("teamAStance").value;
+            teamB = document.getElementById("teamB").value;
+            teamBStance = document.getElementById("teamBStance").value;
+            document.getElementById("teamAName").innerHTML = `队伍名: ${teamA}<br>持方: ${teamAStance}`;
+            document.getElementById("teamBName").innerHTML = `队伍名: ${teamB}<br>持方: ${teamBStance}`;
+            document.getElementById("page1").style.display = "none";
+            document.getElementById("page2").style.display = "block";
+            resetTimer();
+            updatePhaseDisplay();
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timerRunning = false;
+            document.getElementById("timer").innerText = "00:00:000";
+            document.getElementById("timerA").innerText = "00:00:000";
+            document.getElementById("timerB").innerText = "00:00:000";
+            document.getElementById("timer").classList.remove("red-border");
+            document.getElementById("timerA").classList.remove("red-border");
+            document.getElementById("timerB").classList.remove("red-border");
+            lastPlayedTime = -1;
+            if (currentPhase === 10) {
+                freeDebateTimerA = phases[currentPhase].duration;
+                freeDebateTimerB = phases[currentPhase].duration;
+                document.getElementById("freeDebateControls").style.display = "block";
+                document.getElementById("freeDebateTimers").style.display = "flex";
+                document.getElementById("timer").style.display = "none";
+                document.getElementById("freeDebateTeam").innerText = "正方";
+            } else {
+                document.getElementById("freeDebateControls").style.display = "none";
+                document.getElementById("freeDebateTimers").style.display = "none";
+                document.getElementById("timer").style.display = "block";
+                document.getElementById("freeDebateTeam").innerText = "";
+            }
+        }
+
+        function startTimer() {
+            if (!timerRunning) {
+                timerRunning = true;
+                timerEndTime = Date.now() + (currentPhase === 10 ? freeDebateTimerA : phases[currentPhase].duration);
+                timerInterval = setInterval(updateTimer, 10);
+            }
+        }
+
+        function pauseTimer() {
+            clearInterval(timerInterval);
+            timerRunning = false;
+        }
+
+        function updateTimer() {
+            let remainingTime = timerEndTime - Date.now();
+            if (remainingTime <= 0) {
+                if (currentPhase === 10) {
+                    if (currentFreeDebateTimer === "A") {
+                        freeDebateTimerA = 0;
+                        if (freeDebateTimerB <= 0) {
+                            nextPhase();
+                        } else {
+                            switchTimer();
+                            startTimer();
+                        }
+                    } else {
+                        freeDebateTimerB = 0;
+                        if (freeDebateTimerA <= 0) {
+                            nextPhase();
+                        } else {
+                            switchTimer();
+                            startTimer();
+                        }
+                    }
+                } else {
+                    remainingTime = 0;
+                    pauseTimer();
+                    nextPhase();
+                    playSound();
+                }
+            } else if (remainingTime <= 30000 && lastPlayedTime !== 30000) {
+                document.getElementById(currentPhase === 10 ? (currentFreeDebateTimer === "A" ? "timerA" : "timerB") : "timer").classList.add("red-border");
+                playSound();
+                lastPlayedTime = 30000;
+            } else if (remainingTime > 30000) {
+                document.getElementById(currentPhase === 10 ? (currentFreeDebateTimer === "A" ? "timerA" : "timerB") : "timer").classList.remove("red-border");
+                lastPlayedTime = -1;
+            }
+            let minutes = Math.floor(remainingTime / 60000);
+            let seconds = Math.floor((remainingTime % 60000) / 1000);
+            let milliseconds = remainingTime % 1000;
+            let timeString = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(milliseconds).padStart(3, '0')}`;
+            if (currentPhase === 10) {
+                document.getElementById(currentFreeDebateTimer === "A" ? "timerA" : "timerB").innerText = timeString;
+            } else {
+                document.getElementById("timer").innerText = timeString;
+            }
+        }
+
+        function nextPhase() {
+            currentPhase++;
+            if (currentPhase >= phases.length) {
+                document.getElementById("page2").style.display = "none";
+                document.getElementById("page3").style.display = "block";
+                startConfetti(); // 启动撒花效果
+                return;
+            }
+            resetTimer();
+            updatePhaseDisplay();
+        }
+
+        function prevPhase() {
+            if (currentPhase > 0) {
+                currentPhase--;
+                resetTimer();
+                updatePhaseDisplay();
+            }
+        }
+
+        function switchTimer() {
+            if (currentFreeDebateTimer === "A") {
+                currentFreeDebateTimer = "B";
+                freeDebateTimerA = timerEndTime - Date.now();
+                timerEndTime = Date.now() + freeDebateTimerB;
+                document.getElementById("freeDebateTeam").innerText = "反方";
+            } else {
+                currentFreeDebateTimer = "A";
+                freeDebateTimerB = timerEndTime - Date.now();
+                timerEndTime = Date.now() + freeDebateTimerA;
+                document.getElementById("freeDebateTeam").innerText = "正方";
+            }
+        }
+
+        function updatePhaseDisplay() {
+            document.getElementById("phaseDisplay").innerText = phases[currentPhase].name + ` (${phases[currentPhase].duration / 60000}分钟)`;
+        }
+
+        function playSound() {
+            document.getElementById("alertSound").play();
+        }
+        const confettiCount = 200
+        const sequinCount = 100
+
+        const gravityConfetti = 0.3
+        const gravitySequins = 0.55
+        const dragConfetti = 0.075
+        const dragSequins = 0.02
+        const terminalVelocity = 3
+
+        const confettiCanvas = document.getElementById('confettiCanvas')
+        const ctx = confettiCanvas.getContext('2d')
+        confettiCanvas.width = window.innerWidth
+        confettiCanvas.height = window.innerHeight
+
+        let confetti = []
+        let sequins = []
+
+        const colors = [
+            { front: '#7b5cff', back: '#6245e0' }, // Purple
+            { front: '#b3c7ff', back: '#8fa5e5' }, // Light Blue
+            { front: '#5c86ff', back: '#345dd1' }  // Darker Blue
+        ]
+
+        randomRange = (min, max) => Math.random() * (max - min) + min
+
+        initConfettoVelocity = (xRange, yRange) => {
+            const x = randomRange(xRange[0], xRange[1])
+            const range = yRange[1] - yRange[0] + 1
+            let y = yRange[1] - Math.abs(randomRange(0, range) + randomRange(0, range) - range)
+            if (y >= yRange[1] - 1) {
+                y += (Math.random() < .25) ? randomRange(1, 3) : 0
+            }
+            return { x: x, y: -y }
+        }
+
+        function Confetto() {
+            this.randomModifier = randomRange(0, 99)
+            this.color = colors[Math.floor(randomRange(0, colors.length))]
+            this.dimensions = {
+                x: randomRange(5, 9),
+                y: randomRange(8, 15),
+            }
+            this.position = {
+                x: randomRange(0, confettiCanvas.width),
+                y: randomRange(0, confettiCanvas.height),
+            }
+            this.rotation = randomRange(0, 2 * Math.PI)
+            this.scale = {
+                x: 1,
+                y: 1,
+            }
+            this.velocity = initConfettoVelocity([-9, 9], [6, 11])
+        }
+        Confetto.prototype.update = function () {
+            this.velocity.x -= this.velocity.x * dragConfetti
+            this.velocity.y = Math.min(this.velocity.y + gravityConfetti, terminalVelocity)
+            this.velocity.x += Math.random() > 0.5 ? Math.random() : -Math.random()
+
+            this.position.x += this.velocity.x
+            this.position.y += this.velocity.y
+
+            this.scale.y = Math.cos((this.position.y + this.randomModifier) * 0.09)
+        }
+
+        function Sequin() {
+            this.color = colors[Math.floor(randomRange(0, colors.length))].back,
+                this.radius = randomRange(1, 2),
+                this.position = {
+                    x: randomRange(0, confettiCanvas.width),
+                    y: randomRange(0, confettiCanvas.height),
+                },
+                this.velocity = {
+                    x: randomRange(-6, 6),
+                    y: randomRange(-8, -12)
+                }
+        }
+        Sequin.prototype.update = function () {
+            this.velocity.x -= this.velocity.x * dragSequins
+            this.velocity.y = this.velocity.y + gravitySequins
+
+            this.position.x += this.velocity.x
+            this.position.y += this.velocity.y
+        }
+
+        initBurst = () => {
+            for (let i = 0; i < confettiCount; i++) {
+                confetti.push(new Confetto())
+            }
+            for (let i = 0; i < sequinCount; i++) {
+                sequins.push(new Sequin())
+            }
+        }
+
+        renderConfetti = () => {
+            ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height)
+
+            confetti.forEach((confetto, index) => {
+                let width = (confetto.dimensions.x * confetto.scale.x)
+                let height = (confetto.dimensions.y * confetto.scale.y)
+
+                ctx.translate(confetto.position.x, confetto.position.y)
+                ctx.rotate(confetto.rotation)
+
+                confetto.update()
+
+                ctx.fillStyle = confetto.scale.y > 0 ? confetto.color.front : confetto.color.back
+
+                ctx.fillRect(-width / 2, -height / 2, width, height)
+
+                ctx.setTransform(1, 0, 0, 1, 0, 0)
+            })
+
+            sequins.forEach((sequin, index) => {
+                ctx.translate(sequin.position.x, sequin.position.y)
+
+                sequin.update()
+
+                ctx.fillStyle = sequin.color
+
+                ctx.beginPath()
+                ctx.arc(0, 0, sequin.radius, 0, 2 * Math.PI)
+                ctx.fill()
+
+                ctx.setTransform(1, 0, 0, 1, 0, 0)
+            })
+
+            confetti.forEach((confetto, index) => {
+                if (confetto.position.y >= confettiCanvas.height) confetti.splice(index, 1)
+            })
+            sequins.forEach((sequin, index) => {
+                if (sequin.position.y >= confettiCanvas.height) sequins.splice(index, 1)
+            })
+
+            window.requestAnimationFrame(renderConfetti)
+        }
+
+        resizeCanvas = () => {
+            confettiCanvas.width = window.innerWidth
+            confettiCanvas.height = window.innerHeight
+        }
+
+        window.addEventListener('resize', () => {
+            resizeCanvas()
+        })
+
+        startConfetti = () => {
+            initBurst()
+            renderConfetti()
+            setTimeout(() => {
+                confetti = []
+                sequins = []
+            }, 10000)
+        }
+    </script>
+</body>
+</html>
